@@ -28,7 +28,9 @@ input{font:inherit;padding:9px;border-radius:8px;border:1px solid var(--bd);back
 .sw{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
 .sw div{display:grid;grid-template-columns:repeat(3,10px);gap:1px;padding:3px;border:1px solid var(--bd);border-radius:4px}.sw div b{width:10px;height:10px}
 #tip{text-align:center;margin:8px 0 0;font-weight:600}
-</style></head><body><main>
+#c3wrap{text-align:center;margin:6px 0}#c3wrap canvas{border-radius:10px;touch-action:none;cursor:grab;max-width:100%}
+#exp{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:.95rem}
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head><body><main>
 <h1>Rubik's Cube Solver — 20 moves or fewer</h1>
 <p class="s">Paint your cube's colors (hold it with white on top, green in front), then solve. Uses Kociemba's two-phase algorithm.</p>
 <div class="card"><div class="pal" id="pal"></div><div class="net" id="net"></div>
@@ -39,7 +41,7 @@ input{font:inherit;padding:9px;border-radius:8px;border:1px solid var(--bd);back
 <p id="tip"></p><div class="row"><button class="b p" id="cap">Capture face</button><button class="b" id="redo">Redo last</button><button class="b" id="camoff">Stop camera</button></div><div class="sw" id="sw"></div></div>
 <canvas id="cv" width="300" height="300" hidden></canvas></div>
 <div class="card"><button class="b p" id="solve" style="width:100%">Solve</button><div id="msg"></div>
-<div id="out" hidden><h2 id="cnt"></h2><div id="moves"></div>
+<div id="out" hidden><h2 id="cnt"></h2><div id="c3wrap"></div><p class="s" style="font-size:.8rem;text-align:center;margin:0">Drag the cube to look around it.</p><p id="exp"></p><div id="moves"></div>
 <div class="row"><button class="b" id="prev">◀ Back</button><button class="b p" id="next">Next ▶</button><button class="b" id="play">Auto-play</button></div></div></div>
 <p class="s" style="font-size:.85rem">Moves: U D L R F B are clockwise face turns, ' is counter-clockwise, 2 is a half turn. First solve takes a few seconds while the tables build.</p>
 </main>
@@ -3170,7 +3172,7 @@ var net=document.getElementById('net'),msg=document.getElementById('msg');
 function fc(i){var b=document.createElement('div');b.className='face';var o=ORD.indexOf(i);for(var j=0;j<9;j++){var s=document.createElement('button');s.className='st';s.dataset.i=o*9+j;b.appendChild(s)}return b}
 function sp(){var d=document.createElement('div');d.className='sp';return d}
 [sp(),fc('U'),sp(),sp(),fc('L'),fc('F'),fc('R'),fc('B'),sp(),fc('D'),sp(),sp()].forEach(function(n){net.appendChild(n)});
-function draw(){net.querySelectorAll('.st').forEach(function(b){b.style.background=COL[st[b.dataset.i]]})}
+function draw(){net.querySelectorAll('.st').forEach(function(b){b.style.background=COL[st[b.dataset.i]]});if(window.upd3d)upd3d()}
 var pal=document.getElementById('pal');
 ORD.split('').forEach(function(k){var b=document.createElement('button');b.style.background=COL[k];b.title=k;b.onclick=function(){sel=k;pal.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')};if(k=='U')b.classList.add('on');pal.appendChild(b)});
 net.onclick=function(e){var b=e.target.closest('.st');if(!b)return;var i=+b.dataset.i;if(i%9==4)return;st[i]=sel;draw();clr()};
@@ -3180,12 +3182,15 @@ function load(s){st=s.split('');draw();clr()}
 document.getElementById('rst').onclick=function(){load(SOLVED)};
 document.getElementById('apply').onclick=function(){try{var c=new Cube();c.move(document.getElementById('scr').value.trim());load(c.asString())}catch(x){msg.textContent='Could not read that scramble.'}};
 document.getElementById('rnd').onclick=function(){var m=['U','D','L','R','F','B'],s=[],l='';for(var i=0;i<25;i++){var f;do{f=m[Math.random()*6|0]}while(f==l);l=f;s.push(f+['','\'','2'][Math.random()*3|0])}document.getElementById('scr').value=s.join(' ');document.getElementById('apply').onclick()};
-function show(){var c=Cube.fromString(start);if(at)c.move(steps.slice(0,at).join(' '));st=c.asString().split('');draw();
+function show(){init3d();var c=Cube.fromString(start);if(at)c.move(steps.slice(0,at).join(' '));st=c.asString().split('');draw();
 var h='';steps.forEach(function(m,i){h+='<span class="mv '+(i==at?'cur':i<at?'done':'')+'">'+m+'</span>'});document.getElementById('moves').innerHTML=h;
-document.getElementById('prev').disabled=at==0;document.getElementById('next').disabled=at==steps.length}
-document.getElementById('prev').onclick=function(){stop();at--;show()};
-document.getElementById('next').onclick=function(){stop();at++;show()};
-document.getElementById('play').onclick=function(){if(timer)return stop();if(at>=steps.length){at=0;show()}this.textContent='Pause';timer=setInterval(function(){if(at>=steps.length)return stop();at++;show()},700)};
+explain();document.getElementById('prev').disabled=at==0;document.getElementById('next').disabled=at==steps.length}
+var busy=false;
+function inv(m){return m.length==1?m+"'":m[1]=='2'?m:m[0]}
+function go(m,cb){if(busy)return;busy=true;anim3d(m,function(){busy=false;cb()})}
+document.getElementById('prev').onclick=function(){stop();if(at>0)go(inv(steps[at-1]),function(){at--;show()})};
+document.getElementById('next').onclick=function(){stop();if(at<steps.length)go(steps[at],function(){at++;show()})};
+document.getElementById('play').onclick=function(){if(timer)return stop();if(at>=steps.length){at=0;show()}this.textContent='Pause';timer=true;(function loop(){if(!timer)return;if(at>=steps.length)return stop();go(steps[at],function(){at++;show();setTimeout(loop,350)})})()};
 function run(d,done){if(worker)worker.terminate();var url=URL.createObjectURL(new Blob([document.getElementById('wk').textContent],{type:'text/javascript'}));worker=new Worker(url);worker.onmessage=function(e){done(e.data)};worker.onerror=function(){done({err:'Your browser blocked the background solver.'})};worker.postMessage({f:start,d:d})}
 document.getElementById('solve').onclick=function(){stop();var s=st.join('');
 for(var k=0;k<6;k++){var n=s.split(ORD[k]).length-1;if(n!=9){msg.textContent='Each color must appear exactly 9 times ('+ORD[k]+' has '+n+').';return}}
@@ -3225,5 +3230,39 @@ function classify(){var proto={},pairs=[],res=new Array(54);
  pairs.sort(function(a,b){return a[0]-b[0]});var cnt={U:1,R:1,F:1,D:1,L:1,B:1};
  pairs.forEach(function(p){if(res[p[1]]===undefined&&cnt[p[2]]<9){res[p[1]]=p[2];cnt[p[2]]++}});
  st=res;draw();clr();camoff();msg.textContent='Scan done. Check the colors on the net (tap any sticker to fix it), then press Solve.';net.scrollIntoView({behavior:'smooth',block:'center'})}
+// ---- 3D cube + per-move explanation ----
+var T3={},NRM=[[0,1,0],[1,0,0],[0,0,1],[0,-1,0],[-1,0,0],[0,0,-1]];
+function fpos(f,j){var r=j/3|0,c=j%3;return[[c-1,1,r-1],[1,1-r,1-c],[c-1,1-r,1],[c-1,-1,1-r],[-1,1-r,c-1],[1-c,1-r,-1]][f]}
+function init3d(){if(T3.r)return;var w=document.getElementById('c3wrap');
+ if(typeof THREE==='undefined'){w.textContent='3D view needs internet (three.js from cdnjs).';return}
+ var W=Math.min(w.clientWidth||420,460),H=Math.round(W*.8),r=new THREE.WebGLRenderer({antialias:true,alpha:true});
+ r.setPixelRatio(window.devicePixelRatio||1);r.setSize(W,H);w.appendChild(r.domElement);
+ var sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,W/H,.1,50),root=new THREE.Group();cam.position.set(0,0,9.5);root.rotation.set(.55,-.65,0);sc.add(root);
+ var body=new THREE.MeshBasicMaterial({color:0x151515}),geo=new THREE.BoxGeometry(.97,.97,.97),pg=new THREE.PlaneGeometry(.84,.84),cub={},stk=[],x,y,z;
+ for(x=-1;x<2;x++)for(y=-1;y<2;y++)for(z=-1;z<2;z++){var m=new THREE.Mesh(geo,body);m.position.set(x,y,z);root.add(m);cub[x+','+y+','+z]=m}
+ for(var f=0;f<6;f++)for(var j=0;j<9;j++){var n=NRM[f],s=new THREE.Mesh(pg,new THREE.MeshBasicMaterial({color:0x888888}));
+  s.position.set(n[0]*.488,n[1]*.488,n[2]*.488);s.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(n[0],n[1],n[2]));cub[fpos(f,j).join(',')].add(s);stk[f*9+j]=s}
+ var d=null,cv3=r.domElement;
+ cv3.onpointerdown=function(e){d=e;cv3.setPointerCapture(e.pointerId)};cv3.onpointerup=function(){d=null};
+ cv3.onpointermove=function(e){if(!d)return;root.rotation.y+=(e.clientX-d.clientX)*.01;root.rotation.x=Math.max(-1.5,Math.min(1.5,root.rotation.x+(e.clientY-d.clientY)*.01));d=e};
+ (function loop(){requestAnimationFrame(loop);r.render(sc,cam)})();
+ T3={r:r,root:root,cub:cub,stk:stk};upd3d()}
+function upd3d(){if(!T3.r)return;for(var i=0;i<54;i++)T3.stk[i].material.color.set(COL[st[i]])}
+var AXN={U:['y',1,-1],D:['y',-1,1],R:['x',1,-1],L:['x',-1,1],F:['z',1,-1],B:['z',-1,1]};
+function anim3d(m,cb){if(!T3.r)return cb();var a=AXN[m[0]],ang=a[2]*Math.PI/2*(m[1]=="'"?-1:1)*(m[1]=='2'?2:1),p=new THREE.Group(),ls=[],k;
+ T3.root.add(p);for(k in T3.cub){if(T3.cub[k].position[a[0]]===a[1]){ls.push(T3.cub[k]);p.add(T3.cub[k])}}
+ var t0=performance.now(),dur=m[1]=='2'?700:480;
+ (function tick(now){var u=Math.min(1,((now||performance.now())-t0)/dur),e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;p.rotation[a[0]]=ang*e;
+  if(u<1)return requestAnimationFrame(tick);ls.forEach(function(c){T3.root.add(c)});p.rotation[a[0]]=0;T3.root.remove(p);cb()})()}
+var NM={U:'top (Up) layer',D:'bottom (Down) layer',R:'right layer',L:'left layer',F:'front layer (the one facing you)',B:'back layer'},
+EF={U:['front row slides to the left','front row slides to the right'],D:['front row slides to the right','front row slides to the left'],R:['front column slides up','front column slides down'],L:['front column slides down','front column slides up'],F:['top row slides to the right','top row slides to the left'],B:['top row slides to the left','top row slides to the right']};
+function explain(){var e=document.getElementById('exp'),n=steps.length,i,done=0;if(!n)return;
+ if(at==0){e.innerHTML='<b>Start.</b> Hold your cube with <b>white on top and green facing you</b>, like the 3D view. Press <b>Next</b> to see move 1: <b>'+steps[0]+'</b>.';return}
+ for(i=0;i<54;i++)if(st[i]==SOLVED[i])done++;
+ var m=steps[at-1],f=m[0],q=m[1]||'',h='<b>Move '+at+' of '+n+': '+m+'</b> — ';
+ if(q=='2')h+='Turn the '+NM[f]+' a <b>half turn (180°)</b>. Direction doesn\'t matter.';
+ else h+='Turn the '+NM[f]+' <b>'+(q?'counter-clockwise':'clockwise')+' a quarter turn (90°)</b>, as if looking straight at that face. From the front, the '+EF[f][q?1:0]+'.';
+ h+=' <span style="color:var(--mut)">Stickers in place: '+done+'/54.</span>';
+ h+=at<n?' <br>Next: <b>'+steps[at]+'</b>':' <br><b>Solved! 🎉</b>';e.innerHTML=h}
 draw();
 </script></body></html>
